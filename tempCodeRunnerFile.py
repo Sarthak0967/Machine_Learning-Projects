@@ -1,6 +1,0 @@
-plt.figure(figsize=(8, 5))
-sns.scatterplot(x= data['Hours_Studied'], y= data['Exam_Score'], color="green")
-plt.title("Hours Studied vs. Exam Score")
-plt.xlabel("Hours Studied")
-plt.ylabel("Exam Score")
-plt.show()

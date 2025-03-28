@@ -189,10 +189,10 @@ r2 = r2_score(y_test, y_pred)
 
 # Print final performance
 print("\n🚀 Optimized Gradient Boosting Performance:")
-print(f"Mean Absolute Error (MAE): {mae:.4f}")
+print(f"Mean Absolute Error(MAE): {mae:.4f}")
 print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
 print(f"R² Score: {r2:.4f}")
 
-joblib.dump(best_gb_model, "naive_bayes_model.pkl")
+joblib.dump(best_gb_model, "gb_model.pkl")
 joblib.dump(scaler, "scaler.pkl")
 joblib.dump(encoder, "encoder.pkl")

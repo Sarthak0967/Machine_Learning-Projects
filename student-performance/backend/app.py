@@ -2,12 +2,15 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_cors import CORS
 import joblib
 import numpy as np
+import os
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:5173"], supports_credentials=True)
 
-# MySQL Database Configuration
+# Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://flaskuser:yourpassword@localhost/student_performance'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'your_secret_key'
@@ -16,20 +19,19 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 
-# Load trained models and encoders
-model = joblib.load("gb_model.pkl")
-scaler = joblib.load("scaler.pkl")
-encoder = joblib.load("encoder.pkl")
+# Load models
+model = joblib.load("gb_model.pkl") if os.path.exists("gb_model.pkl") else None
+scaler = joblib.load("scaler.pkl") if os.path.exists("scaler.pkl") else None
+encoder = joblib.load("encoder.pkl") if os.path.exists("encoder.pkl") else None
 
-# User Model
+# Models
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'student' or 'teacher'
+    role = db.Column(db.String(20), nullable=False)
 
-# Student Performance Model
 class StudentPerformance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -49,11 +51,11 @@ class StudentPerformance(db.Model):
     distance_from_home = db.Column(db.Integer, nullable=False)
     exam_score = db.Column(db.Float, nullable=True)
 
-# Create Database Tables
+# Create tables
 with app.app_context():
     db.create_all()
 
-# Register Route
+# Routes
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -63,7 +65,6 @@ def register():
     db.session.commit()
     return jsonify({'message': 'User registered successfully'})
 
-# Login Route
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -73,72 +74,41 @@ def login():
         return jsonify({'token': access_token})
     return jsonify({'message': 'Invalid credentials'}), 401
 
-# Student Data Submission and Prediction
-@app.route('/student/data', methods=['POST'])
+@app.route('/predict', methods=['POST'])
 @jwt_required()
-def submit_data():
-    current_user = get_jwt_identity()
-    if current_user['role'] != 'student':
-        return jsonify({'message': 'Unauthorized'}), 403
-    
-    data = request.get_json()
-    student_data = StudentPerformance(
-        student_id=current_user['id'],
-        hours_studied=data['hours_studied'],
-        attendance=data['attendance'],
-        previous_scores=data['previous_scores'],
-        tutoring_sessions=data['tutoring_sessions'],
-        sleep_hours=data['sleep_hours'],
-        physical_activity=data['physical_activity'],
-        parental_involvement=data['parental_involvement'],
-        access_to_resources=data['access_to_resources'],
-        motivation_level=data['motivation_level'],
-        family_income=data['family_income'],
-        teacher_quality=data['teacher_quality'],
-        peer_influence=data['peer_influence'],
-        parental_education_level=data['parental_education_level'],
-        distance_from_home=data['distance_from_home']
-    )
-    db.session.add(student_data)
-    db.session.commit()
-    
-    # Prepare data for prediction
-    features = np.array([[
-        data['hours_studied'], data['attendance'], data['previous_scores'],
-        data['tutoring_sessions'], data['sleep_hours'], data['physical_activity'],
-        data['parental_involvement'], data['access_to_resources'], data['motivation_level'],
-        data['family_income'], data['teacher_quality'], data['peer_influence'],
-        data['parental_education_level'], data['distance_from_home']
-    ]])
-    
-    # Scale numerical features
-    features[:, :6] = scaler.transform(features[:, :6])
-    
-    # Predict exam score
-    predicted_score = model.predict(features)[0]
-    student_data.exam_score = predicted_score
-    db.session.commit()
-    
-    return jsonify({'message': 'Data submitted successfully', 'predicted_exam_score': predicted_score})
+def predict():
+    try:
+        data = request.get_json()
+        required_fields = [
+            'hours_studied', 'attendance', 'previous_scores', 'tutoring_sessions',
+            'sleep_hours', 'physical_activity', 'parental_involvement', 'access_to_resources',
+            'motivation_level', 'family_income', 'teacher_quality', 'peer_influence',
+            'parental_education_level', 'distance_from_home'
+        ]
+        
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Missing required fields'}), 400
 
-# Teacher Update Data
-@app.route('/teacher/update/<int:student_id>', methods=['PUT'])
+        # Convert to numpy array in correct order
+        features = np.array([[data[field] for field in required_fields]])
+        
+        # Scale numerical features (first 6)
+        features[:, :6] = scaler.transform(features[:, :6])
+        
+        # Predict
+        predicted_score = model.predict(features)[0]
+        return jsonify({'predicted_exam_score': predicted_score})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/performance')
 @jwt_required()
-def update_student_data(student_id):
-    current_user = get_jwt_identity()
-    if current_user['role'] != 'teacher':
-        return jsonify({'message': 'Unauthorized'}), 403
-    
-    student = StudentPerformance.query.filter_by(student_id=student_id).first()
-    if not student:
-        return jsonify({'message': 'Student not found'}), 404
-    
-    data = request.get_json()
-    for key, value in data.items():
-        if hasattr(student, key):
-            setattr(student, key, value)
-    db.session.commit()
-    return jsonify({'message': 'Student data updated successfully'})
+def get_performance():
+    return jsonify({
+        "labels": ["Week 1", "Week 2", "Week 3"],
+        "values": [85, 90, 88]
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -104,10 +104,37 @@ def predict():
 @app.route('/performance')
 @jwt_required()
 def get_performance():
-    return jsonify({
-        "labels": ["Week 1", "Week 2", "Week 3"],
-        "values": [85, 90, 88]
-    })
+    try:
+        user_id = get_jwt_identity()['id']
+
+        # Fetch student's exam scores sorted by ID (assuming higher ID means later entries)
+        student_scores = StudentPerformance.query.filter_by(student_id=user_id).order_by(StudentPerformance.id).all()
+
+        if not student_scores:
+            return jsonify({"error": "No performance data available for this student"}), 404
+
+        # Extract exam scores and labels (assuming they're sequential assessments)
+        labels = [f"Exam {i+1}" for i in range(len(student_scores))]
+        student_values = [entry.exam_score for entry in student_scores]
+
+        # Fetch average exam scores of other students (for comparison)
+        other_students_avg_scores = []
+        for i in range(len(student_scores)):
+            avg_score = db.session.query(db.func.avg(StudentPerformance.exam_score)).filter(
+                StudentPerformance.id == student_scores[i].id,
+                StudentPerformance.student_id != user_id
+            ).scalar()
+            other_students_avg_scores.append(avg_score if avg_score is not None else 0)
+
+        return jsonify({
+            "labels": labels,
+            "student_scores": student_values,
+            "avg_scores": other_students_avg_scores
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 
 if __name__ == '__main__':

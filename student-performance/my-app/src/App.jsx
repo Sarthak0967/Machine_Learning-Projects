@@ -1,13 +1,22 @@
 import { Routes, Route } from "react-router-dom";
-import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
+import Auth from "./components/Auth";
+import Dashboard from "./components/Dashboard";
+import AddStudent from "./components/AddStudent";
+import GetStudent from "./components/GetStudents";
+import Predictions from "./components/Predictions";
 
-function App() {
+const App = () => {
   return (
-    <Routes>
-      <Route path="/" element={<LoginPage />} />
-      <Route path="/dashboard" element={<DashboardPage />} />
-    </Routes>
+    <div className="min-h-screen bg-gray-100">
+      <Routes>
+        <Route path="/" element={<Auth />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/add-student" element={<AddStudent />} />
+        <Route path="/get-student" element={<GetStudent />} />
+        <Route path="/predictions" element={<Predictions />} />
+      </Routes>
+    </div>
   );
-}
+};
+
 export default App;

@@ -2,48 +2,57 @@ import { useState } from "react";
 import axios from "axios";
 
 const categoricalOptions = {
-  parental_involvement: ["Low", "Medium", "High"],
-  access_to_resources: ["Low", "Medium", "High"],
-  motivation_level: ["Low", "Medium", "High"],
-  family_income: ["Low", "Medium", "High"],
-  teacher_quality: ["Low", "Medium", "High"],
-  peer_influence: ["Negative", "Neutral", "Positive"],
-  parental_education_level: ["High School", "College", "Postgraduate"],
-  distance_from_home: ["Near", "Moderate", "Far"],
+  Parental_Involvement: ["Low", "Medium", "High"],
+  Access_to_Resources: ["Low", "Medium", "High"],
+  Motivation_Level: ["Low", "Medium", "High"],
+  Family_Income: ["Low", "Medium", "High"],
+  Teacher_Quality: ["Low", "Medium", "High"],
+  Peer_Influence: ["Negative", "Neutral", "Positive"],
+  Parental_Education_Level: ["High School", "College", "Post Graduate"],
+  Distance_from_Home: ["Near", "Moderate", "Far"],
 };
 
+const numericalFeatures = [
+  "Hours_Studied", "Attendance", "Sleep_Hours", "Previous_Scores", 
+  "Tutoring_Sessions", "Physical_Activity"
+];
+
+const featureOrder = [
+  "Hours_Studied", "Attendance", "Parental_Involvement", "Access_to_Resources", 
+  "Sleep_Hours", "Previous_Scores", "Motivation_Level", "Tutoring_Sessions", 
+  "Family_Income", "Teacher_Quality", "Peer_Influence", "Physical_Activity", 
+  "Parental_Education_Level", "Distance_from_Home"
+];
+
 const Predictions = () => {
-  const [inputData, setInputData] = useState({
-    hours_studied: "",
-    attendance: "",
-    sleep_hours: "",
-    previous_scores: "",
-    tutoring_sessions: "",
-    physical_activity: "",
-    ...Object.fromEntries(Object.keys(categoricalOptions).map((key) => [key, ""])) 
-  });
+  const [inputData, setInputData] = useState(
+    Object.fromEntries(featureOrder.map((key) => [key, ""]))
+  );
+  
   const [prediction, setPrediction] = useState(null);
   const [message, setMessage] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    // Check if the input is numeric and convert accordingly
-    const updatedValue = (categoricalOptions[name] || []).length ? value : value === "" ? "" : Number(value);
-
+    const updatedValue = numericalFeatures.includes(name) ? (value === "" ? "" : Number(value)) : value;
     setInputData({ ...inputData, [name]: updatedValue });
   };
 
   const handlePredict = async (e) => {
-    e.preventDefault(); // Prevent form submission from refreshing the page
+    e.preventDefault();
     try {
+      const token = localStorage.getItem("token");
       const response = await axios.post("http://localhost:5000/predict", inputData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
       });
       setPrediction(response.data.predicted_score);
-      setMessage(""); // Clear any previous error messages
+      setMessage("");
     } catch (error) {
       setMessage("Prediction failed. Please check the input data or try again.");
+      console.log(error);
     }
   };
 
@@ -52,7 +61,7 @@ const Predictions = () => {
       <div className="bg-white p-6 rounded-lg shadow-md w-96">
         <h2 className="text-xl font-bold mb-4 text-center">Predict Student Score</h2>
         <form onSubmit={handlePredict}>
-          {Object.keys(inputData).map((key) => (
+          {featureOrder.map((key) => (
             <div key={key} className="mb-4">
               <label className="block text-gray-700">{key.replace(/_/g, " ").toUpperCase()}</label>
               {categoricalOptions[key] ? (
@@ -70,7 +79,7 @@ const Predictions = () => {
                 </select>
               ) : (
                 <input
-                  type="text"
+                  type="number"
                   name={key}
                   value={inputData[key]}
                   onChange={handleChange}

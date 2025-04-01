@@ -50,6 +50,32 @@ class Student(db.Model):
     distance_from_home = db.Column(db.String(20), nullable=False)  # Changed to String
     predicted_score = db.Column(db.Float, nullable=True)
 
+# Define categorical feature mappings (from training data)
+categorical_mappings = {
+    "Parental_Involvement": ["Low", "Medium", "High"],
+    "Access_to_Resources": ["Low", "Medium", "High"],
+    "Motivation_Level": ["Low", "Medium", "High"],
+    "Family_Income": ["Low", "Medium", "High"],
+    "Teacher_Quality": ["Low", "Medium", "High"],
+    "Peer_Influence": ["Negative", "Neutral", "Positive"],
+    "Parental_Education_Level": ["High School", "College", "Post Graduate"],
+    "Distance_from_Home": ["Near", "Moderate", "Far"]
+}
+
+# Define numerical features
+numerical_features = [
+    "Hours_Studied", "Attendance", "Sleep_Hours", "Previous_Scores", 
+    "Tutoring_Sessions", "Physical_Activity"
+]
+
+# Define the correct feature order used during training
+feature_order = [
+    "Hours_Studied", "Attendance", "Parental_Involvement", "Access_to_Resources", 
+    "Sleep_Hours", "Previous_Scores", "Motivation_Level", "Tutoring_Sessions", 
+    "Family_Income", "Teacher_Quality", "Peer_Influence", "Physical_Activity", 
+    "Parental_Education_Level", "Distance_from_Home", "Study_Efficiency", 
+    "Improvement_Rate", "Tutoring_Effect"
+]
 
 # Route for teacher signup
 @app.route('/register', methods=['POST'])
@@ -75,60 +101,51 @@ def login():
 # Route for prediction
 @app.route('/predict', methods=['POST'])
 @jwt_required()
+
+
 def predict():
     try:
-        # Get the data from the request
+        # Get JSON data from request
         data = request.get_json()
 
-        # Extract features from the request data
-        features = {
-            'Hours_Studied': data['Hours_Studied'],
-            'Attendance': data['Attendance'],
-            'Sleep_Hours': data['Sleep_Hours'],
-            'Previous_Scores': data['Previous_Scores'],
-            'Tutoring_Sessions': data['Tutoring_Sessions'],
-            'Physical_Activity': data['Physical_Activity'],
-            'Parental_Involvement': data['Parental_Involvement'],
-            'Access_to_Resources': data['Access_to_Resources'],
-            'Motivation_Level': data['Motivation_Level'],
-            'Family_Income': data['Family_Income'],
-            'Teacher_Quality': data['Teacher_Quality'],
-            'Peer_Influence': data['Peer_Influence'],
-            'Parental_Education_Level': data['Parental_Education_Level'],
-            'Distance_from_Home': data['Distance_from_Home']
-        }
+        # Validate all required features are present
+        missing_features = [feature for feature in numerical_features + list(categorical_mappings.keys()) if feature not in data]
+        if missing_features:
+            return jsonify({"error": f"Missing features: {missing_features}"}), 400
 
-        # Convert to DataFrame for processing
-        input_data = pd.DataFrame([features])
+        # Validate categorical values
+        for feature, valid_values in categorical_mappings.items():
+            if data[feature] not in valid_values:
+                return jsonify({"error": f"Invalid value '{data[feature]}' for {feature}. Must be one of {valid_values}"}), 400
 
-        # Create derived features
-        input_data['Study_Efficiency'] = input_data['Hours_Studied'] / (input_data['Attendance'] + 1)  # Avoid division by zero
-        input_data['Improvement_Rate'] = input_data['Previous_Scores'] - input_data['Previous_Scores']  # Assuming Exam_Score will be predicted
-        input_data['Tutoring_Effect'] = input_data['Tutoring_Sessions'] / (input_data['Hours_Studied'] + 1)
+        # Convert input data to DataFrame
+        input_data = pd.DataFrame([data])
 
-        # Scale the numerical features using the pre-trained scaler
-        numerical_features = ['Hours_Studied', 'Attendance', 'Sleep_Hours', 'Previous_Scores',
-                              'Tutoring_Sessions', 'Physical_Activity', 'Study_Efficiency', 
-                              'Improvement_Rate', 'Tutoring_Effect']
+        # Calculate derived features
+        input_data["Study_Efficiency"] = input_data["Hours_Studied"] / (input_data["Attendance"] + 1)  # Avoid division by zero
+        input_data["Improvement_Rate"] = input_data["Previous_Scores"] - input_data["Previous_Scores"]  # Likely needs fixing
+        input_data["Tutoring_Effect"] = input_data["Tutoring_Sessions"] / (input_data["Hours_Studied"] + 1)
 
-        input_data[numerical_features] = scaler.transform(input_data[numerical_features])
+        # Encode categorical features using predefined mappings
+        for feature in categorical_mappings:
+            input_data[feature] = categorical_mappings[feature].index(data[feature])
 
-        # Encode categorical features using the pre-trained encoder with 'handle_unknown' set to 'ignore'
-        categorical_features = ['Parental_Involvement', 'Access_to_Resources', 'Motivation_Level',
-                                'Family_Income', 'Teacher_Quality', 'Peer_Influence',
-                                'Parental_Education_Level', 'Distance_from_Home']
+        # Scale numerical features, including derived features
+        numerical_features_with_derived = numerical_features + ["Study_Efficiency", "Improvement_Rate", "Tutoring_Effect"]
+        input_data[numerical_features_with_derived] = scaler.transform(input_data[numerical_features_with_derived])
 
-        for col in categorical_features:
-            input_data[col] = encoder.transform(input_data[col].apply(lambda x: x if x in encoder.classes_ else 'Unknown'))
+        # Ensure feature order matches training
+        input_data = input_data[feature_order]
 
-        # Predict using the model
+        # Make prediction
         prediction = model.predict(input_data)
 
-        # Return the prediction as a JSON response
-        return jsonify({'predicted_exam_score': prediction[0]}), 200
+        return jsonify({'predicted_score': prediction[0]})
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': str(e)}), 500
+
+
 
 
 # Route to add a new student

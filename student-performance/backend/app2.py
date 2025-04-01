@@ -5,6 +5,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from flask_cors import CORS
 import joblib
 import numpy as np
+import pandas as pd
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
@@ -71,47 +72,65 @@ def login():
 
     return jsonify({"message": "Invalid credentials"}), 401
 
-# Route to get prediction
+# Route for prediction
 @app.route('/predict', methods=['POST'])
+@jwt_required()
 def predict():
     try:
-        data = request.json
-        print("Received Data:", data)
-        if not data:
-                   return {"error": "No input data provided"}, 400
+        # Get the data from the request
+        data = request.get_json()
 
-        # Convert input values to numbers
-        numeric_fields = ['Hours_studied', 'Attendance', 'Sleep_hours', 'Previous_scores', 'Tutoring_sessions', 'Physical_Activity']
-        for field in numeric_fields:
-            if field in data:
-                data[field] = float(data[field])
-            else:
-                return jsonify({"error": f"Missing field: {field}"}), 400
+        # Extract features from the request data
+        features = {
+            'Hours_Studied': data['Hours_Studied'],
+            'Attendance': data['Attendance'],
+            'Sleep_Hours': data['Sleep_Hours'],
+            'Previous_Scores': data['Previous_Scores'],
+            'Tutoring_Sessions': data['Tutoring_Sessions'],
+            'Physical_Activity': data['Physical_Activity'],
+            'Parental_Involvement': data['Parental_Involvement'],
+            'Access_to_Resources': data['Access_to_Resources'],
+            'Motivation_Level': data['Motivation_Level'],
+            'Family_Income': data['Family_Income'],
+            'Teacher_Quality': data['Teacher_Quality'],
+            'Peer_Influence': data['Peer_Influence'],
+            'Parental_Education_Level': data['Parental_Education_Level'],
+            'Distance_from_Home': data['Distance_from_Home']
+        }
 
-        Study_Efficiency = float(data['Hours_Studied']) / (float(data['Attendance']) + 1)
-        Improvement_Rate = float(data['Previous_Scores']) / (float(data['Attendance']) + 1)
-        Tutoring_Effect = float(data['Tutoring_Sessions']) / (float(data['Attendance']) + 1)
+        # Convert to DataFrame for processing
+        input_data = pd.DataFrame([features])
 
-        numerical_features = np.array([
-            data['Hours_Studied'], data['Attendance'], data['Sleep_Hours'],
-            data['Previous_Scores'], Study_Efficiency, data['Tutoring_Sessions'],
-            data['Physical_Activity'], Improvement_Rate ,Tutoring_Effect
-        ]).reshape(1, -1)
+        # Create derived features
+        input_data['Study_Efficiency'] = input_data['Hours_Studied'] / (input_data['Attendance'] + 1)  # Avoid division by zero
+        input_data['Improvement_Rate'] = input_data['Previous_Scores'] - input_data['Previous_Scores']  # Assuming Exam_Score will be predicted
+        input_data['Tutoring_Effect'] = input_data['Tutoring_Sessions'] / (input_data['Hours_Studied'] + 1)
 
-        scaled_features = scaler.transform(numerical_features)
-        full_features = np.hstack((scaled_features[0], [
-            data['Parental_Involvement'], data['Access_to_Resources'], data['Motivation_Level'],
-            data['Family_Income'], data['Teacher_Quality'], data['Peer_Influence'],
-            data['Parental_Education_Level'], data['Distance_from_Home']
-        ])).reshape(1, -1)
+        # Scale the numerical features using the pre-trained scaler
+        numerical_features = ['Hours_Studied', 'Attendance', 'Sleep_Hours', 'Previous_Scores',
+                              'Tutoring_Sessions', 'Physical_Activity', 'Study_Efficiency', 
+                              'Improvement_Rate', 'Tutoring_Effect']
 
-        predicted_score = model.predict(full_features)[0]
-        return jsonify({"predicted_score": predicted_score})
+        input_data[numerical_features] = scaler.transform(input_data[numerical_features])
+
+        # Encode categorical features using the pre-trained encoder with 'handle_unknown' set to 'ignore'
+        categorical_features = ['Parental_Involvement', 'Access_to_Resources', 'Motivation_Level',
+                                'Family_Income', 'Teacher_Quality', 'Peer_Influence',
+                                'Parental_Education_Level', 'Distance_from_Home']
+
+        for col in categorical_features:
+            input_data[col] = encoder.transform(input_data[col].apply(lambda x: x if x in encoder.classes_ else 'Unknown'))
+
+        # Predict using the model
+        prediction = model.predict(input_data)
+
+        # Return the prediction as a JSON response
+        return jsonify({'predicted_exam_score': prediction[0]}), 200
 
     except Exception as e:
-        return jsonify({"error": "Prediction failed", "details": str(e)}), 500
+        return jsonify({'error': str(e)}), 400
 
-# Route to add a new student
+
 # Route to add a new student
 @app.route('/add_student', methods=['POST'])
 @jwt_required()

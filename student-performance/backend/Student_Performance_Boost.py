@@ -121,9 +121,15 @@ data[numerical_features] = scaler.fit_transform(data[numerical_features])
 
 from sklearn.model_selection import train_test_split
 
+print(data.head(10))
+
 # Define target variable (Exam_Score) and features (X)
 X = data.drop(columns=['Exam_Score'])  # Features
 y = data['Exam_Score']  # Target variable
+
+print("🚀 Features used for training:", list(X.columns))
+joblib.dump(list(X.columns), "feature_names.pkl")  # Save feature names
+
 
 # Split into 80% training and 20% testing
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

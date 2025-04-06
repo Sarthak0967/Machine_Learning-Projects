@@ -48,7 +48,7 @@ const Predictions = () => {
           Authorization: token ? `Bearer ${token}` : "",
         },
       });
-      setPrediction(response.data.predicted_score);
+      setPrediction(response.data);
       setMessage("");
     } catch (error) {
       setMessage("Prediction failed. Please check the input data or try again.");
@@ -94,7 +94,24 @@ const Predictions = () => {
           </button>
         </form>
         {message && <p className="text-center text-red-600 mt-4">{message}</p>}
-        {prediction && <p className="text-center text-green-600 mt-4">Predicted Score: {prediction}</p>}
+        {prediction && prediction.predicted_score && (
+  <div className="mt-6 p-4 bg-white rounded shadow-md">
+    <h2 className="text-xl font-semibold text-gray-700">Predicted Score: {prediction.predicted_score.toFixed(2)}</h2>
+
+    {/* Graph Rendering */}
+    {prediction.prediction_graph && (
+      <div className="mt-4">
+        <h3 className="text-lg text-gray-600 mb-2">Prediction Graph</h3>
+        <img
+          src={prediction.prediction_graph}
+          alt="Prediction Graph"
+          className="w-full h-auto rounded border"
+        />
+      </div>
+    )}
+  </div>
+)}
+
       </div>
     </div>
   );

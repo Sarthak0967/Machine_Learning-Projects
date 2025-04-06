@@ -7,6 +7,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
 
@@ -104,6 +105,9 @@ def login():
 
 
 def predict():
+    import matplotlib.pyplot as plt
+    import io
+    import base64
     try:
         # Get JSON data from request
         data = request.get_json()
@@ -123,7 +127,7 @@ def predict():
 
         # Calculate derived features
         input_data["Study_Efficiency"] = input_data["Hours_Studied"] / (input_data["Attendance"] + 1)  # Avoid division by zero
-        input_data["Improvement_Rate"] = input_data["Previous_Scores"] - input_data["Previous_Scores"]  # Likely needs fixing
+        input_data["Improvement_Rate"] = (input_data["Previous_Scores"] - input_data["Previous_Scores"])  # Likely needs fixing
         input_data["Tutoring_Effect"] = input_data["Tutoring_Sessions"] / (input_data["Hours_Studied"] + 1)
 
         # Encode categorical features using predefined mappings
@@ -138,9 +142,37 @@ def predict():
         input_data = input_data[feature_order]
 
         # Make prediction
-        prediction = model.predict(input_data)
+        prediction = model.predict(input_data)[0]
 
-        return jsonify({'predicted_score': prediction[0]})
+        # --- 🔽 GRAPH GENERATION STARTS HERE ---
+        # Fetch all existing predicted scores from DB
+        existing_scores = [s.predicted_score for s in Student.query.with_entities(Student.predicted_score).all() if s.predicted_score is not None]
+
+        # Add current prediction
+        all_scores = existing_scores + [prediction]
+
+        # Create histogram
+        plt.figure(figsize=(10, 5))
+        plt.hist(existing_scores, bins=10, alpha=0.7, label="Existing Predictions", color="skyblue", edgecolor='black')
+        plt.axvline(prediction, color='red', linestyle='dashed', linewidth=2, label=f"Current Prediction: {round(prediction, 2)}")
+        plt.title("Distribution of Predicted Scores")
+        plt.xlabel("Score")
+        plt.ylabel("Number of Students")
+        plt.legend()
+
+        # Save plot to buffer
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format='png')
+        plt.close()
+        img_buf.seek(0)
+
+        # Encode as base64
+        img_base64 = base64.b64encode(img_buf.getvalue()).decode('utf-8')
+
+        return jsonify({
+            'predicted_score': prediction,
+            'prediction_graph': f"data:image/png;base64,{img_base64}"
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

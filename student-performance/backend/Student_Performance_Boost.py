@@ -99,7 +99,7 @@ data = data.drop(columns=existing_columns_to_drop)
 
 # Create new meaningful features
 data['Study_Efficiency'] = data['Hours_Studied'] / (data['Attendance'] + 1)  # Avoid division by zero
-data['Improvement_Rate'] = data['Exam_Score'] - data['Previous_Scores']  # How much they improved
+data['Improvement_Rate'] = data['Exam_Score'] / (data['Hours_Studied']+1)  # How much they improved
 data['Tutoring_Effect'] = data['Tutoring_Sessions'] / (data['Hours_Studied'] + 1)
 
 print(data[['Study_Efficiency','Improvement_Rate','Tutoring_Effect']].head())

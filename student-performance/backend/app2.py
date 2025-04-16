@@ -127,7 +127,7 @@ def predict():
 
         # Calculate derived features
         input_data["Study_Efficiency"] = input_data["Hours_Studied"] / (input_data["Attendance"] + 1)  # Avoid division by zero
-        input_data["Improvement_Rate"] = (input_data["Previous_Scores"] - input_data["Previous_Scores"])  # Likely needs fixing
+        input_data["Improvement_Rate"] = (input_data["Previous_Scores"] / (input_data['Hours_Studied']+1))  # Likely needs fixing
         input_data["Tutoring_Effect"] = input_data["Tutoring_Sessions"] / (input_data["Hours_Studied"] + 1)
 
         # Encode categorical features using predefined mappings
@@ -226,7 +226,7 @@ def add_student():
 
         # Derived features
         input_dict["Study_Efficiency"] = input_dict["Hours_Studied"] / (input_dict["Attendance"] + 1)
-        input_dict["Improvement_Rate"] = input_dict["Previous_Scores"] - input_dict["Previous_Scores"]  # could be 0 unless you define better logic
+        input_dict["Improvement_Rate"] = input_dict["Previous_Scores"] / (input_dict["Hours_Studied"]+1) # could be 0 unless you define better logic
         input_dict["Tutoring_Effect"] = input_dict["Tutoring_Sessions"] / (input_dict["Hours_Studied"] + 1)
 
         # Encode categorical values

@@ -54,7 +54,8 @@ const GetStudents = () => {
       </div>
       {message && <p className="text-red-500">{message}</p>}
       {students.length > 0 && (
-        <table className="table-auto border-collapse border border-gray-300 mt-4">
+        <div className="overflow-x-auto w-full mt-4">
+        <table className="table-auto border-collapse border border-gray-300 mt-4 ">
           <thead>
             <tr className="bg-gray-200">
               {Object.keys(students[0]).map((key) => (
@@ -72,6 +73,7 @@ const GetStudents = () => {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

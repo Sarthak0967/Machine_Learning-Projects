@@ -15,8 +15,6 @@ const Auth = () => {
     try {
       const url = isRegistering ? "http://localhost:5000/register" : "http://localhost:5000/login";
       const response = await axios.post(url, { email, password });
-      console.log(isRegistering ? "Register Response:" : "Login Response:", response.data);
-      
       if (!isRegistering && response.data.access_token) {
         localStorage.setItem("token", response.data.access_token);
         setMessage("Login successful!");
@@ -28,45 +26,78 @@ const Auth = () => {
         setMessage("Invalid response from server.");
       }
     } catch (error) {
-      console.error(isRegistering ? "Register Error:" : "Login Error:", error.response);
-      setMessage("Request failed. Try again.");
+      setMessage(error.response?.data?.error || "Request failed. Try again.");
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen">
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md w-96">
-        <h2 className="text-xl font-bold mb-4 text-center">{isRegistering ? "Register" : "Login"}</h2>
-        <div className="mb-4">
-          <label className="block text-gray-700">Email</label>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white bg-opacity-90 backdrop-blur-md rounded-xl shadow-lg max-w-md w-full p-8"
+      >
+        <h2 className="text-3xl font-extrabold text-center mb-6 text-gray-800">
+          {isRegistering ? "Create Account" : "Welcome Back"}
+        </h2>
+
+        <div className="mb-5">
+          <label htmlFor="email" className="block text-gray-700 font-medium mb-2">
+            Email Address
+          </label>
           <input
+            id="email"
             type="email"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-400 outline-none transition"
             required
           />
         </div>
-        <div className="mb-4">
-          <label className="block text-gray-700">Password</label>
+
+        <div className="mb-6">
+          <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
+            Password
+          </label>
           <input
+            id="password"
             type="password"
+            placeholder="********"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-400 outline-none transition"
             required
           />
         </div>
-        <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">
+
+        <button
+          type="submit"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg shadow-md transition"
+        >
           {isRegistering ? "Register" : "Login"}
         </button>
-        {message && <p className="text-center text-red-600 mt-4">{message}</p>}
-        <p className="text-center mt-4">
+
+        {message && (
+          <p
+            className={`mt-5 text-center ${
+              message.toLowerCase().includes("success")
+                ? "text-green-600"
+                : "text-red-600"
+            } font-medium`}
+          >
+            {message}
+          </p>
+        )}
+
+        <p className="mt-6 text-center text-gray-700">
           {isRegistering ? "Already have an account? " : "Don't have an account? "}
           <button
             type="button"
-            onClick={() => setIsRegistering(!isRegistering)}
-            className="text-blue-500 hover:underline"
+            onClick={() => {
+              setIsRegistering(!isRegistering);
+              setMessage("");
+            }}
+            className="text-indigo-600 font-semibold hover:underline focus:outline-none"
           >
             {isRegistering ? "Login" : "Register"}
           </button>
